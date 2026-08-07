@@ -1,3 +1,12 @@
+import sys
+from unittest.mock import MagicMock
+
+# Trick Python into thinking cv2 is already loaded to satisfy ultralytics
+import cv2
+
+sys.modules["cv2"] = MagicMock()
+
+
 import tempfile
 import numpy as np
 from PIL import Image
