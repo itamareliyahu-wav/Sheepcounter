@@ -9,9 +9,11 @@ st.set_page_config(page_title="Sheep Counter", page_icon="🐑")
 
 st.title("🐑 Sheep Counter")
 
+
 @st.cache_resource
 def get_model():
         return YOLO("yolov8n.pt")
+
 
         model = get_model()
 
@@ -25,7 +27,10 @@ def get_model():
                         res = model(arr, classes=[19], verbose=False)
                         count = len(res[0].boxes)
                         st.success(f"Found {count} sheep!")
-                        st.image(cv2.cvtColor(res[0].plot(), cv2.COLOR_BGR2RGB), channels="RGB")
+
+                        annotated_array = res[0].plot()
+                        annotated_rgb = annotated_array[..., ::-1]
+                        st.image(Image.fromarray(annotated_rgb), use_container_width=True)
 
                 else:
                         vid = st.file_uploader("Upload video", type=["mp4", "mov", "avi"])
@@ -47,4 +52,4 @@ def get_model():
 
                                                 cap.release()
                                                 st.success(f"Done! Max sheep in a frame: {max_c}")
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
