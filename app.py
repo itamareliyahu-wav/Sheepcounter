@@ -5,95 +5,46 @@ from PIL import Image
 import streamlit as st
 from ultralytics import YOLO
 
-# Set up the web page configuration
-st.set_page_config(
-    page_title="Sheep Counter App", page_icon="🐑", layout="centered"
-    )
+st.set_page_config(page_title="Sheep Counter", page_icon="🐑")
 
-    st.title("🐑 Sheep Counter - Stills & Video")
-    st.write(
-        "Choose whether you want to upload a still photo or a video of the flock."
-        )
+st.title("🐑 Sheep Counter")
 
+@st.cache_resource
+def get_model():
+        return YOLO("yolov8n.pt")
 
-        # Load the AI model
-        @st.cache_resource
-        def load_model():
-            model = YOLO("yolov8n.pt")  # Lightweight model for detection
-                return model
+        model = get_model()
 
+        mode = st.selectbox("Select mode:", ["Still Photo", "Video"])
 
-                with st.spinner("Loading AI model..."):
-                    model = load_model()
+        if mode == "Still Photo":
+                file = st.file_uploader("Upload image", type=["jpg", "png", "jpeg"])
+                if file:
+                        img = Image.open(file)
+                        arr = np.array(img)
+                        res = model(arr, classes=[19], verbose=False)
+                        count = len(res[0].boxes)
+                        st.success(f"Found {count} sheep!")
+                        st.image(cv2.cvtColor(res[0].plot(), cv2.COLOR_BGR2RGB), channels="RGB")
 
-                    # Menu to choose between Still Photo or Video
-                    mode = st.selectbox("Select mode:", ["Still Photo", "Video"])
+                else:
+                        vid = st.file_uploader("Upload video", type=["mp4", "mov", "avi"])
+                        if vid:
+                                tf = tempfile.NamedTemporaryFile(delete=False)
+                                tf.write(vid.read())
+                                cap = cv2.VideoCapture(tf.name)
+                                box = st.empty()
+                                max_c = 0
 
-                    if mode == "Still Photo":
-                        # Upload or capture a still image
-                            uploaded_image = st.file_uploader(
-                                    "Choose an image file", type=["jpg", "jpeg", "png"]
-                                        )
+                                while cap.isOpened():
+                                        ret, frame = cap.read()
+                                        if not ret:
+                                                break
+                                                res = model(frame, classes=[19], verbose=False)
+                                                c = len(res[0].boxes)
+                                                max_c = max(max_c, c)
+                                                box.metric("Current frame count", c)
 
-                                            if uploaded_image is not None:
-                                                    image = Image.open(uploaded_image)
-                                                            img_array = np.array(image)
-
-                                                                    with st.spinner("Analyzing image..."):
-                                                                                results = model(img_array, classes=[19], verbose=False)
-                                                                                            sheep_count = len(results[0].boxes)
-
-                                                                                                    st.success(f"Found in image: **{sheep_count} sheep!** 🎉")
-
-                                                                                                            # Display the annotated image with bounding boxes
-                                                                                                                    annotated_img = results[0].plot()
-                                                                                                                            st.image(
-                                                                                                                                        cv2.cvtColor(annotated_img, cv2.COLOR_BGR2RGB),
-                                                                                                                                                    channels="RGB",
-                                                                                                                                                                use_container_width=True,
-                                                                                                                                                                        )
-
-                                                                                                                                                                        else:
-                                                                                                                                                                            # Upload a video file
-                                                                                                                                                                                video_file = st.file_uploader(
-                                                                                                                                                                                        "Choose a video file", type=["mp4", "mov", "avi", "webm"]
-                                                                                                                                                                                            )
-
-                                                                                                                                                                                                if video_file is not None:
-                                                                                                                                                                                                        tfile = tempfile.NamedTemporaryFile(delete=False)
-                                                                                                                                                                                                                tfile.write(video_file.read())
-
-                                                                                                                                                                                                                        cap = cv2.VideoCapture(tfile.name)
-
-                                                                                                                                                                                                                                st.write("Processing video frames...")
-                                                                                                                                                                                                                                        st_frame = st.empty()
-                                                                                                                                                                                                                                                count_placeholder = st.empty()
-
-                                                                                                                                                                                                                                                        max_sheep_count = 0
-
-                                                                                                                                                                                                                                                                while cap.isOpened():
-                                                                                                                                                                                                                                                                            ret, frame = cap.read()
-                                                                                                                                                                                                                                                                                        if not ret:
-                                                                                                                                                                                                                                                                                                        break
-
-                                                                                                                                                                                                                                                                                                                    results = model(frame, classes=[19], verbose=False)
-                                                                                                                                                                                                                                                                                                                                current_count = len(results[0].boxes)
-                                                                                                                                                                                                                                                                                                                                            max_sheep_count = max(max_sheep_count, current_count)
-
-                                                                                                                                                                                                                                                                                                                                                        count_placeholder.metric(
-                                                                                                                                                                                                                                                                                                                                                                        label="Sheep detected in current frame", value=current_count
-                                                                                                                                                                                                                                                                                                                                                                                    )
-
-                                                                                                                                                                                                                                                                                                                                                                                                annotated_frame = results[0].plot()
-                                                                                                                                                                                                                                                                                                                                                                                                            st_frame.image(
-                                                                                                                                                                                                                                                                                                                                                                                                                            cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB),
-                                                                                                                                                                                                                                                                                                                                                                                                                                            channels="RGB",
-                                                                                                                                                                                                                                                                                                                                                                                                                                                            use_container_width=True,
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                        )
-
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                cap.release()
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        st.success(
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    f"Processing complete! Maximum sheep counted in a single frame:"
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                f" **{max_sheep_count}** 🎉"
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        )
-                                                                                                                                                                                                                                                                                                        
+                                                cap.release()
+                                                st.success(f"Done! Max sheep in a frame: {max_c}")
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    
